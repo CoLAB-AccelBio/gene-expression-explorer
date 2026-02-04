@@ -1,54 +1,67 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { ExpressionDataset } from "@/types/expression";
 import { demoDataset } from "@/data/demoData";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { ExportMenu } from "./ExportMenu";
-import { ExpressionBoxPlot } from "@/components/charts/ExpressionBoxPlot";
-import { SampleBoxPlot } from "@/components/charts/SampleBoxPlot";
-import { ExpressionHeatmap } from "@/components/charts/ExpressionHeatmap";
-import { ExpressionHistogram } from "@/components/charts/ExpressionHistogram";
-import { ExpressionViolinPlot } from "@/components/charts/ExpressionViolinPlot";
-import { GeneCorrelationPlot } from "@/components/charts/GeneCorrelationPlot";
-import { CorrelationMatrix } from "@/components/charts/CorrelationMatrix";
-import { DifferentialExpression } from "@/components/charts/DifferentialExpression";
+import { ComparisonPanel } from "./ComparisonPanel";
 import { SummaryStats } from "@/components/charts/SummaryStats";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Grid3X3, Activity, CircleDot, Users, TrendingUp, FlaskConical } from "lucide-react";
+import { BarChart3, Grid3X3, Activity, CircleDot, Users, TrendingUp, FlaskConical, Layers } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export function Dashboard() {
-  const [dataset, setDataset] = useState<ExpressionDataset>(demoDataset);
+  const [datasets, setDatasets] = useState<ExpressionDataset[]>([demoDataset]);
   const [selectedGenes, setSelectedGenes] = useState<string[]>(["TP53", "EGFR", "MYC"]);
-  const [selectedGroups, setSelectedGroups] = useState<string[]>(dataset.groups);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>(demoDataset.groups);
   const [activeTab, setActiveTab] = useState("boxplot");
 
-  const handleDataLoad = (data: ExpressionDataset) => {
-    setDataset(data);
-    setSelectedGenes(data.genes.slice(0, 3));
-    setSelectedGroups(data.groups);
-  };
+  const handleAddDataset = useCallback((data: ExpressionDataset) => {
+    setDatasets(prev => [...prev, data]);
+    // Add new groups to selection
+    setSelectedGroups(prev => {
+      const newGroups = data.groups.filter(g => !prev.includes(g));
+      return [...prev, ...newGroups];
+    });
+  }, []);
 
-  const selectedExpressions = dataset.expressions.filter(e => 
-    selectedGenes.includes(e.gene)
-  );
+  const handleRemoveDataset = useCallback((index: number) => {
+    setDatasets(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Merge genes/groups for export menu (uses first dataset for now)
+  const primaryDataset = datasets[0];
+  
+  const isComparisonMode = datasets.length > 1;
 
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar
-        dataset={dataset}
+        datasets={datasets}
         selectedGenes={selectedGenes}
         onGenesChange={setSelectedGenes}
         selectedGroups={selectedGroups}
         onGroupsChange={setSelectedGroups}
-        onDataLoad={handleDataLoad}
+        onAddDataset={handleAddDataset}
+        onRemoveDataset={handleRemoveDataset}
       />
       
       <main className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="max-w-full mx-auto space-y-6">
           <header className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">{dataset.name}</h2>
-              {dataset.description && (
-                <p className="text-muted-foreground mt-1">{dataset.description}</p>
+            <div className="flex items-center gap-3">
+              {isComparisonMode ? (
+                <div className="flex items-center gap-2">
+                  <Layers className="h-5 w-5 text-primary" />
+                  <h2 className="text-2xl font-bold text-foreground">Comparison Mode</h2>
+                  <Badge variant="secondary">{datasets.length} datasets</Badge>
+                </div>
+              ) : (
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">{primaryDataset.name}</h2>
+                  {primaryDataset.description && (
+                    <p className="text-muted-foreground mt-1">{primaryDataset.description}</p>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex items-center gap-3">
@@ -61,8 +74,8 @@ export function Dashboard() {
                 )}
               </div>
               <ExportMenu
-                chartContainerId="chart-container"
-                dataset={dataset}
+                chartContainerId="chart-container-0"
+                dataset={primaryDataset}
                 selectedGenes={selectedGenes}
                 selectedGroups={selectedGroups}
               />
@@ -101,101 +114,35 @@ export function Dashboard() {
               </TabsTrigger>
             </TabsList>
             
-            <div id="chart-container">
-              <TabsContent value="boxplot" className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {selectedExpressions.map(expr => (
-                    <ExpressionBoxPlot
-                      key={expr.gene}
-                      geneExpression={expr}
-                      groups={dataset.groups}
-                      selectedGroups={selectedGroups}
-                    />
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="heatmap">
-                <ExpressionHeatmap
-                  expressions={dataset.expressions}
-                  samples={dataset.samples}
+            {/* Comparison panels or single view */}
+            <div className={`grid gap-6 ${isComparisonMode ? 'grid-cols-1 xl:grid-cols-2' : ''}`}>
+              {datasets.map((dataset, index) => (
+                <ComparisonPanel
+                  key={`${dataset.name}-${index}`}
+                  dataset={dataset}
                   selectedGenes={selectedGenes}
                   selectedGroups={selectedGroups}
-                  groups={dataset.groups}
+                  activeTab={activeTab}
+                  panelIndex={index}
                 />
-              </TabsContent>
-              
-              <TabsContent value="histogram" className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  {selectedExpressions.map(expr => (
-                    <ExpressionHistogram
-                      key={expr.gene}
-                      geneExpression={expr}
-                      groups={dataset.groups}
-                      selectedGroups={selectedGroups}
-                    />
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="strip" className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {selectedExpressions.map(expr => (
-                    <ExpressionViolinPlot
-                      key={expr.gene}
-                      geneExpression={expr}
-                      groups={dataset.groups}
-                      selectedGroups={selectedGroups}
-                    />
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="sample">
-                <SampleBoxPlot
-                  expressions={dataset.expressions}
-                  selectedGenes={selectedGenes}
-                  selectedGroups={selectedGroups}
-                  groups={dataset.groups}
-                />
-              </TabsContent>
-
-              <TabsContent value="correlation" className="space-y-4">
-                <CorrelationMatrix
-                  expressions={dataset.expressions}
-                  selectedGenes={selectedGenes}
-                  selectedGroups={selectedGroups}
-                />
-                <GeneCorrelationPlot
-                  expressions={dataset.expressions}
-                  selectedGenes={selectedGenes}
-                  selectedGroups={selectedGroups}
-                  groups={dataset.groups}
-                />
-              </TabsContent>
-
-              <TabsContent value="diffexp">
-                <DifferentialExpression
-                  expressions={dataset.expressions}
-                  selectedGenes={selectedGenes}
-                  selectedGroups={selectedGroups}
-                  groups={dataset.groups}
-                />
-              </TabsContent>
+              ))}
             </div>
           </Tabs>
           
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="lg:col-span-3">
-              <h3 className="text-lg font-semibold mb-3">Summary Statistics</h3>
-              <SummaryStats
-                expressions={dataset.expressions}
-                selectedGenes={selectedGenes}
-                selectedGroups={selectedGroups}
-                groups={dataset.groups}
-              />
+          {/* Summary stats for primary dataset */}
+          {!isComparisonMode && (
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="lg:col-span-3">
+                <h3 className="text-lg font-semibold mb-3">Summary Statistics</h3>
+                <SummaryStats
+                  expressions={primaryDataset.expressions}
+                  selectedGenes={selectedGenes}
+                  selectedGroups={selectedGroups}
+                  groups={primaryDataset.groups}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
