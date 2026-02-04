@@ -1,27 +1,48 @@
 import { Separator } from "@/components/ui/separator";
-import { FileUpload } from "./FileUpload";
+import { DatasetManager } from "./DatasetManager";
 import { GeneSelector } from "./GeneSelector";
 import { GroupFilter } from "./GroupFilter";
 import { ExpressionDataset } from "@/types/expression";
 import { Dna, Database } from "lucide-react";
+import { useMemo } from "react";
 
 interface DashboardSidebarProps {
-  dataset: ExpressionDataset;
+  datasets: ExpressionDataset[];
   selectedGenes: string[];
   onGenesChange: (genes: string[]) => void;
   selectedGroups: string[];
   onGroupsChange: (groups: string[]) => void;
-  onDataLoad: (data: ExpressionDataset) => void;
+  onAddDataset: (data: ExpressionDataset) => void;
+  onRemoveDataset: (index: number) => void;
 }
 
 export function DashboardSidebar({
-  dataset,
+  datasets,
   selectedGenes,
   onGenesChange,
   selectedGroups,
   onGroupsChange,
-  onDataLoad,
+  onAddDataset,
+  onRemoveDataset,
 }: DashboardSidebarProps) {
+  // Merge all unique genes and groups across datasets
+  const allGenes = useMemo(() => {
+    const geneSet = new Set<string>();
+    datasets.forEach(d => d.genes.forEach(g => geneSet.add(g)));
+    return Array.from(geneSet).sort();
+  }, [datasets]);
+
+  const allGroups = useMemo(() => {
+    const groupSet = new Set<string>();
+    datasets.forEach(d => d.groups.forEach(g => groupSet.add(g)));
+    return Array.from(groupSet).sort();
+  }, [datasets]);
+
+  const totalSamples = useMemo(() => 
+    datasets.reduce((sum, d) => sum + d.samples.length, 0), 
+    [datasets]
+  );
+
   return (
     <aside className="w-72 bg-sidebar border-r border-sidebar-border h-screen overflow-y-auto flex flex-col">
       <div className="p-4 border-b border-sidebar-border">
@@ -37,15 +58,17 @@ export function DashboardSidebar({
       </div>
       
       <div className="flex-1 p-4 space-y-6">
-        <FileUpload
-          onDataLoad={onDataLoad}
-          currentDataset={dataset.name}
+        <DatasetManager
+          datasets={datasets}
+          onAddDataset={onAddDataset}
+          onRemoveDataset={onRemoveDataset}
+          maxDatasets={4}
         />
         
         <Separator className="bg-sidebar-border" />
         
         <GeneSelector
-          genes={dataset.genes}
+          genes={allGenes}
           selectedGenes={selectedGenes}
           onSelectionChange={onGenesChange}
         />
@@ -53,7 +76,7 @@ export function DashboardSidebar({
         <Separator className="bg-sidebar-border" />
         
         <GroupFilter
-          groups={dataset.groups}
+          groups={allGroups}
           selectedGroups={selectedGroups}
           onSelectionChange={onGroupsChange}
         />
@@ -62,7 +85,7 @@ export function DashboardSidebar({
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-2 text-xs text-sidebar-foreground/60">
           <Database className="h-4 w-4" />
-          <span>{dataset.samples.length} samples • {dataset.genes.length} genes</span>
+          <span>{datasets.length} dataset{datasets.length !== 1 ? 's' : ''} • {totalSamples} samples • {allGenes.length} genes</span>
         </div>
       </div>
     </aside>
