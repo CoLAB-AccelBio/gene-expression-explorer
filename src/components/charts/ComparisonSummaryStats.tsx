@@ -1,8 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { ExpressionDataset } from "@/types/expression";
 import { calculateMean, calculateMedian, calculateStdDev, calculateMin, calculateMax } from "@/utils/statistics";
-import { useMemo } from "react";
-import { Database, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Database, TrendingUp, TrendingDown, BarChart3, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
+
+type SortColumn = "gene" | "delta" | number;
+type SortDirection = "asc" | "desc";
 
 interface ComparisonSummaryStatsProps {
   datasets: ExpressionDataset[];
@@ -106,6 +110,94 @@ export function ComparisonSummaryStats({
       lowest: avgList.slice(-3).reverse(),
     };
   }, [summaries]);
+
+  const [sortColumn, setSortColumn] = useState<SortColumn>("gene");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  // Build sorted gene data for the comparison table
+  const sortedGeneData = useMemo(() => {
+    const geneData = selectedGenes.map(gene => {
+      const means = summaries.map(s => {
+        const stat = s.geneStats.find(gs => gs.gene === gene);
+        return stat ? stat.mean : null;
+      });
+      const stdDevs = summaries.map(s => {
+        const stat = s.geneStats.find(gs => gs.gene === gene);
+        return stat ? stat.stdDev : null;
+      });
+      const validMeans = means.filter((m): m is number => m !== null);
+      const maxDiff = validMeans.length > 1 
+        ? Math.max(...validMeans) - Math.min(...validMeans) 
+        : 0;
+      return { gene, means, stdDevs, maxDiff };
+    });
+
+    return [...geneData].sort((a, b) => {
+      let aVal: number | string;
+      let bVal: number | string;
+
+      if (sortColumn === "gene") {
+        aVal = a.gene;
+        bVal = b.gene;
+      } else if (sortColumn === "delta") {
+        aVal = a.maxDiff;
+        bVal = b.maxDiff;
+      } else {
+        aVal = a.means[sortColumn] ?? -Infinity;
+        bVal = b.means[sortColumn] ?? -Infinity;
+      }
+
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortDirection === "asc" 
+          ? aVal.localeCompare(bVal) 
+          : bVal.localeCompare(aVal);
+      }
+      return sortDirection === "asc" 
+        ? (aVal as number) - (bVal as number) 
+        : (bVal as number) - (aVal as number);
+    });
+  }, [selectedGenes, summaries, sortColumn, sortDirection]);
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === "gene" ? "asc" : "desc");
+    }
+  };
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === "asc" 
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
+  const exportCsv = () => {
+    const headers = ["Gene", ...summaries.map(s => `${s.name} (Mean)`), ...summaries.map(s => `${s.name} (StdDev)`), "Delta Max"];
+    const rows = sortedGeneData.map(({ gene, means, stdDevs, maxDiff }) => [
+      gene,
+      ...means.map(m => m !== null ? m.toFixed(4) : ""),
+      ...stdDevs.map(s => s !== null ? s.toFixed(4) : ""),
+      maxDiff.toFixed(4)
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `gene_comparison_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (datasets.length === 0) {
     return null;
@@ -276,48 +368,71 @@ export function ComparisonSummaryStats({
         {/* Per-Gene Comparison Table */}
         {selectedGenes.length > 0 && summaries.length > 1 && (
           <div>
-            <h4 className="font-medium text-sm mb-3">Per-Gene Mean Expression Across Datasets</h4>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium text-sm">Per-Gene Mean Expression Across Datasets</h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportCsv}
+                className="h-7 text-xs gap-1"
+              >
+                <Download className="h-3 w-3" />
+                Export CSV
+              </Button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-2 px-3 font-semibold text-muted-foreground">Gene</th>
+                    <th 
+                      className="text-left py-2 px-3 font-semibold text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                      onClick={() => handleSort("gene")}
+                    >
+                      <span className="flex items-center">
+                        Gene
+                        {getSortIcon("gene")}
+                      </span>
+                    </th>
                     {summaries.map((summary, idx) => (
-                      <th key={idx} className="text-right py-2 px-3 font-semibold text-muted-foreground truncate max-w-[120px]" title={summary.name}>
-                        {summary.name.length > 12 ? `${summary.name.slice(0, 12)}...` : summary.name}
+                      <th 
+                        key={idx} 
+                        className="text-right py-2 px-3 font-semibold text-muted-foreground truncate max-w-[120px] cursor-pointer hover:text-foreground transition-colors" 
+                        title={summary.name}
+                        onClick={() => handleSort(idx)}
+                      >
+                        <span className="flex items-center justify-end">
+                          {summary.name.length > 12 ? `${summary.name.slice(0, 12)}...` : summary.name}
+                          {getSortIcon(idx)}
+                        </span>
                       </th>
                     ))}
-                    <th className="text-right py-2 px-3 font-semibold text-muted-foreground">Δ Max</th>
+                    <th 
+                      className="text-right py-2 px-3 font-semibold text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                      onClick={() => handleSort("delta")}
+                    >
+                      <span className="flex items-center justify-end">
+                        Δ Max
+                        {getSortIcon("delta")}
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedGenes.slice(0, 10).map(gene => {
-                    const means = summaries.map(s => {
-                      const stat = s.geneStats.find(gs => gs.gene === gene);
-                      return stat ? stat.mean : null;
-                    });
-                    
-                    const validMeans = means.filter((m): m is number => m !== null);
-                    const maxDiff = validMeans.length > 1 
-                      ? Math.max(...validMeans) - Math.min(...validMeans) 
-                      : 0;
-                    
-                    return (
-                      <tr key={gene} className="border-b border-border/50">
-                        <td className="py-2 px-3">
-                          <span className="gene-tag text-xs">{gene}</span>
+                  {sortedGeneData.slice(0, 10).map(({ gene, means, maxDiff }) => (
+                    <tr key={gene} className="border-b border-border/50">
+                      <td className="py-2 px-3">
+                        <span className="gene-tag text-xs">{gene}</span>
+                      </td>
+                      {means.map((mean, idx) => (
+                        <td key={idx} className="py-2 px-3 text-right font-mono">
+                          {mean !== null ? mean.toFixed(2) : "—"}
                         </td>
-                        {means.map((mean, idx) => (
-                          <td key={idx} className="py-2 px-3 text-right font-mono">
-                            {mean !== null ? mean.toFixed(2) : "—"}
-                          </td>
-                        ))}
-                        <td className={`py-2 px-3 text-right font-mono ${maxDiff > 1 ? "text-primary font-semibold" : ""}`}>
-                          {maxDiff.toFixed(2)}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      ))}
+                      <td className={`py-2 px-3 text-right font-mono ${maxDiff > 1 ? "text-primary font-semibold" : ""}`}>
+                        {maxDiff.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
               {selectedGenes.length > 10 && (
