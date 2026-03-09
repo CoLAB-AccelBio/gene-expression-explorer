@@ -38,8 +38,8 @@ An interactive, browser-based dashboard for visualizing and comparing gene expre
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/geneviz.git
-cd geneviz
+git clone https://github.com/your-org/gene-expression-explorer.git
+cd gene-expression-explorer
 
 # Install dependencies
 npm install
@@ -156,7 +156,7 @@ Sample3,Treatment,48,Tumor
 ## Project Structure
 
 ```
-geneviz/
+gene-expression-explorer/
 ├── public/                     # Static assets
 ├── scripts/
 │   ├── expression_to_json.R    # R script for data conversion
