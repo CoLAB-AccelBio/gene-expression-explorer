@@ -95,7 +95,7 @@ The output JSON has the following structure:
 1. Prepare your expression matrix (log2 TPM/FPKM recommended)
 2. Prepare sample annotations with grouping information
 3. Run the script to generate JSON
-4. Upload the JSON file to the GeneViz dashboard
+4. Upload the JSON file to the Gene Expression Explorer dashboard
 
 ```bash
 # Process all genes

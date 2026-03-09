@@ -156,7 +156,7 @@ Sample3,Treatment,48,Tumor
 ## Project Structure
 
 ```
-geneviz/
+gene-expression-explorer/
 ├── public/                     # Static assets
 ├── scripts/
 │   ├── expression_to_json.R    # R script for data conversion
