@@ -2,7 +2,7 @@
 
 # Gene Expression to JSON Converter
 # This script takes an expression matrix and sample annotations and outputs
-# a JSON file formatted for the GeneViz dashboard.
+# a JSON file formatted for the Gene Expression Explorer dashboard.
 #
 # Usage:
 #   Rscript expression_to_json.R \
