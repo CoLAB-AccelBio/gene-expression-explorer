@@ -11,7 +11,7 @@ import { Download, Image, FileText, FileCode, Layers } from "lucide-react";
 import { toPng, toSvg } from "html-to-image";
 import { jsPDF } from "jspdf";
 import { ExpressionDataset } from "@/types/expression";
-import { calculateMean, calculateStdDev } from "@/utils/statistics";
+import { calculateMean, calculateStdDev, calculateBoxPlotStats } from "@/utils/statistics";
 import { toast } from "sonner";
 
 interface ExportMenuProps {
@@ -113,8 +113,25 @@ export function ExportMenu({
     return summaryRows;
   };
 
+  const generateGeneBoxPlotData = (ds: ExpressionDataset) => {
+    const availableGenes = selectedGenes.filter(g => ds.genes.includes(g));
+    const availableGroups = selectedGroups.filter(g => ds.groups.includes(g));
+
+    return availableGenes.map(gene => {
+      const expr = ds.expressions.find(e => e.gene === gene);
+      if (!expr) return null;
+      const values = expr.samples
+        .filter(s => availableGroups.includes(s.group))
+        .map(s => s.value);
+      if (values.length === 0) return null;
+      const stats = calculateBoxPlotStats(values);
+      return { gene, ...stats, n: values.length };
+    }).filter(Boolean) as { gene: string; min: number; q1: number; median: number; q3: number; max: number; n: number }[];
+  };
+
   const exportAsHtml = () => {
     const summaryData = generateSummaryData(dataset);
+    const boxPlotData = generateGeneBoxPlotData(dataset);
     
     const htmlContent = `
 <!DOCTYPE html>
@@ -248,6 +265,39 @@ export function ExportMenu({
     </table>
   </div>
   
+  ${boxPlotData.length > 0 ? `
+  <div class="section">
+    <h2>Gene Box Plot Statistics</h2>
+    <p style="color: var(--muted); margin-bottom: 1rem;">Relative expression distribution across selected genes (all selected groups combined)</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Gene</th>
+          <th>Min</th>
+          <th>Q1</th>
+          <th>Median</th>
+          <th>Q3</th>
+          <th>Max</th>
+          <th>N</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${boxPlotData.map(row => `
+          <tr>
+            <td><span class="gene-tag">${row.gene}</span></td>
+            <td>${row.min.toFixed(3)}</td>
+            <td>${row.q1.toFixed(3)}</td>
+            <td><strong>${row.median.toFixed(3)}</strong></td>
+            <td>${row.q3.toFixed(3)}</td>
+            <td>${row.max.toFixed(3)}</td>
+            <td>${row.n}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+  ` : ''}
+
   <div class="section">
     <h2>Sample Groups</h2>
     <table>
@@ -286,6 +336,7 @@ export function ExportMenu({
 
   const exportAsPdf = async () => {
     const summaryData = generateSummaryData(dataset);
+    const boxPlotData = generateGeneBoxPlotData(dataset);
     
     const pdf = new jsPDF();
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -376,6 +427,49 @@ export function ExportMenu({
       pdf.text(row.n.toString(), x, y);
       y += 6;
     });
+
+    // Gene Box Plot Statistics
+    if (boxPlotData.length > 0) {
+      y += 5;
+      if (y > 220) { pdf.addPage(); y = 20; }
+      
+      pdf.setFontSize(14);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text("Gene Box Plot Statistics", 14, y);
+      y += 10;
+
+      pdf.setFontSize(9);
+      const bpHeaders = ["Gene", "Min", "Q1", "Median", "Q3", "Max", "N"];
+      const bpColWidths = [30, 25, 25, 25, 25, 25, 20];
+      x = 14;
+
+      pdf.setFillColor(56, 189, 248);
+      pdf.setTextColor(255, 255, 255);
+      pdf.rect(14, y - 4, pageWidth - 28, 8, "F");
+      bpHeaders.forEach((header, i) => {
+        pdf.text(header, x, y);
+        x += bpColWidths[i];
+      });
+      y += 8;
+
+      pdf.setTextColor(0, 0, 0);
+      boxPlotData.forEach((row, index) => {
+        if (y > 270) { pdf.addPage(); y = 20; }
+        if (index % 2 === 0) {
+          pdf.setFillColor(240, 240, 240);
+          pdf.rect(14, y - 4, pageWidth - 28, 6, "F");
+        }
+        x = 14;
+        pdf.text(row.gene, x, y); x += bpColWidths[0];
+        pdf.text(row.min.toFixed(2), x, y); x += bpColWidths[1];
+        pdf.text(row.q1.toFixed(2), x, y); x += bpColWidths[2];
+        pdf.text(row.median.toFixed(2), x, y); x += bpColWidths[3];
+        pdf.text(row.q3.toFixed(2), x, y); x += bpColWidths[4];
+        pdf.text(row.max.toFixed(2), x, y); x += bpColWidths[5];
+        pdf.text(row.n.toString(), x, y);
+        y += 6;
+      });
+    }
     
     pdf.save(`${dataset.name}-summary-${Date.now()}.pdf`);
     toast.success("PDF report exported successfully");
@@ -560,10 +654,13 @@ export function ExportMenu({
     </table>
   </div>
   
-  ${allDatasetStats.map((ds, i) => `
+  ${datasets.map((dsObj, i) => {
+    const bpData = generateGeneBoxPlotData(dsObj);
+    const dsStats = allDatasetStats[i];
+    return `
     <div class="section">
       <div class="dataset-section" style="border-color: ${['#38bdf8', '#22c55e', '#f59e0b', '#a855f7'][i]}">
-        <h3>${ds.name}</h3>
+        <h3>${dsStats.name}</h3>
         <table>
           <thead>
             <tr>
@@ -575,7 +672,7 @@ export function ExportMenu({
             </tr>
           </thead>
           <tbody>
-            ${ds.summaryData.map(row => `
+            ${dsStats.summaryData.map(row => `
               <tr>
                 <td><span class="gene-tag">${row.gene}</span></td>
                 <td>${row.group}</td>
@@ -586,9 +683,39 @@ export function ExportMenu({
             `).join('')}
           </tbody>
         </table>
+        ${bpData.length > 0 ? `
+        <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">Gene Box Plot Statistics</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>Gene</th>
+              <th>Min</th>
+              <th>Q1</th>
+              <th>Median</th>
+              <th>Q3</th>
+              <th>Max</th>
+              <th>N</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bpData.map(row => `
+              <tr>
+                <td><span class="gene-tag">${row.gene}</span></td>
+                <td>${row.min.toFixed(3)}</td>
+                <td>${row.q1.toFixed(3)}</td>
+                <td><strong>${row.median.toFixed(3)}</strong></td>
+                <td>${row.q3.toFixed(3)}</td>
+                <td>${row.max.toFixed(3)}</td>
+                <td>${row.n}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        ` : ''}
       </div>
     </div>
-  `).join('')}
+    `;
+  }).join('')}
 </body>
 </html>
     `.trim();
@@ -769,6 +896,50 @@ export function ExportMenu({
         pdf.setTextColor(148, 163, 184);
         pdf.text(`... and ${summaryData.length - 15} more rows`, 14, y);
         y += 5;
+      }
+
+      // Gene Box Plot Statistics for this dataset
+      const bpData = generateGeneBoxPlotData(ds);
+      if (bpData.length > 0) {
+        y += 5;
+        if (y > 220) { pdf.addPage(); y = 20; }
+
+        pdf.setFontSize(10);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text("Gene Box Plot Statistics", 14, y);
+        y += 8;
+
+        pdf.setFontSize(8);
+        const bpHeaders = ["Gene", "Min", "Q1", "Median", "Q3", "Max", "N"];
+        const bpColWidths = [28, 22, 22, 25, 22, 22, 18];
+        x = 14;
+
+        pdf.setFillColor(r, g, b);
+        pdf.setTextColor(255, 255, 255);
+        pdf.rect(14, y - 4, pageWidth - 28, 7, "F");
+        bpHeaders.forEach((header, i) => {
+          pdf.text(header, x, y);
+          x += bpColWidths[i];
+        });
+        y += 7;
+
+        pdf.setTextColor(0, 0, 0);
+        bpData.forEach((row, index) => {
+          if (y > 270) { pdf.addPage(); y = 20; }
+          if (index % 2 === 0) {
+            pdf.setFillColor(245, 245, 245);
+            pdf.rect(14, y - 4, pageWidth - 28, 5, "F");
+          }
+          x = 14;
+          pdf.text(row.gene, x, y); x += bpColWidths[0];
+          pdf.text(row.min.toFixed(2), x, y); x += bpColWidths[1];
+          pdf.text(row.q1.toFixed(2), x, y); x += bpColWidths[2];
+          pdf.text(row.median.toFixed(2), x, y); x += bpColWidths[3];
+          pdf.text(row.q3.toFixed(2), x, y); x += bpColWidths[4];
+          pdf.text(row.max.toFixed(2), x, y); x += bpColWidths[5];
+          pdf.text(row.n.toString(), x, y);
+          y += 5;
+        });
       }
 
       y += 10;
