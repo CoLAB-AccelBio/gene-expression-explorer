@@ -7,7 +7,7 @@ import { ComparisonPanel } from "./ComparisonPanel";
 import { SummaryStats } from "@/components/charts/SummaryStats";
 import { ComparisonSummaryStats } from "@/components/charts/ComparisonSummaryStats";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Grid3X3, Activity, CircleDot, Users, TrendingUp, FlaskConical, Layers, Flame } from "lucide-react";
+import { BarChart3, Grid3X3, Activity, CircleDot, Users, TrendingUp, FlaskConical, Layers, Flame, GitCompareArrows } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export function Dashboard() {
