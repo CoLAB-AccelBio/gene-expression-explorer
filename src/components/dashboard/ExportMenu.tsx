@@ -11,7 +11,7 @@ import { Download, Image, FileText, FileCode, Layers } from "lucide-react";
 import { toPng, toSvg } from "html-to-image";
 import { jsPDF } from "jspdf";
 import { ExpressionDataset } from "@/types/expression";
-import { calculateMean, calculateStdDev } from "@/utils/statistics";
+import { calculateMean, calculateStdDev, calculateBoxPlotStats } from "@/utils/statistics";
 import { toast } from "sonner";
 
 interface ExportMenuProps {
