@@ -147,6 +147,15 @@ export function ComparisonPanel({
           />
         )}
 
+        {activeTab === "geneboxplot" && (
+          <GeneBoxPlot
+            expressions={dataset.expressions}
+            selectedGenes={availableGenes}
+            selectedGroups={availableGroups}
+            groups={dataset.groups}
+          />
+        )}
+
         {activeTab === "volcano" && (
           <VolcanoPlot
             expressions={dataset.expressions}

@@ -123,6 +123,10 @@ export function Dashboard() {
                 <FlaskConical className="h-4 w-4" />
                 Diff. Expr.
               </TabsTrigger>
+              <TabsTrigger value="geneboxplot" className="gap-2">
+                <GitCompareArrows className="h-4 w-4" />
+                Gene Box Plot
+              </TabsTrigger>
               <TabsTrigger value="volcano" className="gap-2">
                 <Flame className="h-4 w-4" />
                 Volcano
