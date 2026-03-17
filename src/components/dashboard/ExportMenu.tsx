@@ -654,10 +654,13 @@ export function ExportMenu({
     </table>
   </div>
   
-  ${allDatasetStats.map((ds, i) => `
+  ${datasets.map((dsObj, i) => {
+    const bpData = generateGeneBoxPlotData(dsObj);
+    const dsStats = allDatasetStats[i];
+    return `
     <div class="section">
       <div class="dataset-section" style="border-color: ${['#38bdf8', '#22c55e', '#f59e0b', '#a855f7'][i]}">
-        <h3>${ds.name}</h3>
+        <h3>${dsStats.name}</h3>
         <table>
           <thead>
             <tr>
@@ -669,7 +672,7 @@ export function ExportMenu({
             </tr>
           </thead>
           <tbody>
-            ${ds.summaryData.map(row => `
+            ${dsStats.summaryData.map(row => `
               <tr>
                 <td><span class="gene-tag">${row.gene}</span></td>
                 <td>${row.group}</td>
@@ -680,9 +683,39 @@ export function ExportMenu({
             `).join('')}
           </tbody>
         </table>
+        ${bpData.length > 0 ? `
+        <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">Gene Box Plot Statistics</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>Gene</th>
+              <th>Min</th>
+              <th>Q1</th>
+              <th>Median</th>
+              <th>Q3</th>
+              <th>Max</th>
+              <th>N</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bpData.map(row => `
+              <tr>
+                <td><span class="gene-tag">${row.gene}</span></td>
+                <td>${row.min.toFixed(3)}</td>
+                <td>${row.q1.toFixed(3)}</td>
+                <td><strong>${row.median.toFixed(3)}</strong></td>
+                <td>${row.q3.toFixed(3)}</td>
+                <td>${row.max.toFixed(3)}</td>
+                <td>${row.n}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        ` : ''}
       </div>
     </div>
-  `).join('')}
+    `;
+  }).join('')}
 </body>
 </html>
     `.trim();
