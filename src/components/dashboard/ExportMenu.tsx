@@ -799,33 +799,8 @@ export function ExportMenu({
           </tbody>
         </table>
         ${bpData.length > 0 ? `
-        <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">Gene Box Plot Statistics</h4>
-        <table>
-          <thead>
-            <tr>
-              <th>Gene</th>
-              <th>Min</th>
-              <th>Q1</th>
-              <th>Median</th>
-              <th>Q3</th>
-              <th>Max</th>
-              <th>N</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${bpData.map(row => `
-              <tr>
-                <td><span class="gene-tag">${row.gene}</span></td>
-                <td>${row.min.toFixed(3)}</td>
-                <td>${row.q1.toFixed(3)}</td>
-                <td><strong>${row.median.toFixed(3)}</strong></td>
-                <td>${row.q3.toFixed(3)}</td>
-                <td>${row.max.toFixed(3)}</td>
-                <td>${row.n}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+        <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">Gene Box Plot</h4>
+        ${generateBoxPlotSvg(bpData, { width: 700, height: 300, darkMode: true })}
         ` : ''}
       </div>
     </div>
