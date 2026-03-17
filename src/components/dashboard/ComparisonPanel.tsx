@@ -8,6 +8,7 @@ import { GeneCorrelationPlot } from "@/components/charts/GeneCorrelationPlot";
 import { CorrelationMatrix } from "@/components/charts/CorrelationMatrix";
 import { DifferentialExpression } from "@/components/charts/DifferentialExpression";
 import { VolcanoPlot } from "@/components/charts/VolcanoPlot";
+import { GeneBoxPlot } from "@/components/charts/GeneBoxPlot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Database } from "lucide-react";
 
@@ -139,6 +140,15 @@ export function ComparisonPanel({
 
         {activeTab === "diffexp" && (
           <DifferentialExpression
+            expressions={dataset.expressions}
+            selectedGenes={availableGenes}
+            selectedGroups={availableGroups}
+            groups={dataset.groups}
+          />
+        )}
+
+        {activeTab === "geneboxplot" && (
+          <GeneBoxPlot
             expressions={dataset.expressions}
             selectedGenes={availableGenes}
             selectedGroups={availableGroups}

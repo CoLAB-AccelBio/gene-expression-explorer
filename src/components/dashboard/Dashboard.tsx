@@ -7,7 +7,7 @@ import { ComparisonPanel } from "./ComparisonPanel";
 import { SummaryStats } from "@/components/charts/SummaryStats";
 import { ComparisonSummaryStats } from "@/components/charts/ComparisonSummaryStats";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Grid3X3, Activity, CircleDot, Users, TrendingUp, FlaskConical, Layers, Flame } from "lucide-react";
+import { BarChart3, Grid3X3, Activity, CircleDot, Users, TrendingUp, FlaskConical, Layers, Flame, GitCompareArrows } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export function Dashboard() {
@@ -122,6 +122,10 @@ export function Dashboard() {
               <TabsTrigger value="diffexp" className="gap-2">
                 <FlaskConical className="h-4 w-4" />
                 Diff. Expr.
+              </TabsTrigger>
+              <TabsTrigger value="geneboxplot" className="gap-2">
+                <GitCompareArrows className="h-4 w-4" />
+                Gene Box Plot
               </TabsTrigger>
               <TabsTrigger value="volcano" className="gap-2">
                 <Flame className="h-4 w-4" />
